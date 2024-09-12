@@ -1,0 +1,21 @@
+---
+# destroy.yml playbook
+
+- name: Destroy molecule containers
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Stop and remove container
+      delegate_to: localhost
+      containers.podman.podman_container:
+        name: "{{ item.name }}"
+        state: absent
+      loop: "{{ molecule_yml.platforms }}"
+      loop_control:
+        label: "{{ item.name }}"
+
+    - name: Remove dynamic molecule inventory
+      ansible.builtin.file:
+        path: "{{ molecule_ephemeral_directory }}/inventory/molecule_inventory.yml"
+        state: absent

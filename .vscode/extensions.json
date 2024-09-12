@@ -1,0 +1,11 @@
+{
+    "recommendations": [
+        "cnshenj.vscode-task-manager",
+        "ms-python.python",
+        "redhat.ansible",
+        "redhat.vscode-redhat-account",
+        "redhat.vscode-yaml",
+        "github.vscode-pull-request-github",
+        "mhutchie.git-graph"
+    ]
+}

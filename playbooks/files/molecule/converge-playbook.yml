@@ -1,0 +1,4 @@
+---
+# For testing playbooks, call the file with import_playbook
+- name: Converge
+  import_playbook: ../../playbooks/my_first_playbook.yml

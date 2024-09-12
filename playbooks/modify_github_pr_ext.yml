@@ -1,0 +1,41 @@
+---
+- name: Update GitHub Pull Requests Package JSON
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  no_log: false
+  vars:
+    api_addition: '"readonlyMessage",'
+    file_path: /checode/remote/extensions/github.vscode-pull-request-github-0.80.1-universal/package.json
+  tasks:
+    - name: Check configuration file exists
+      ansible.builtin.stat:
+        path: "{{ file_path }}"
+      register: product_result
+    - name: Print product result exists
+      ansible.builtin.debug:
+        msg: "{{ product_result.stat.exists }}"
+    - name: "Check if readonlyMessage is listed in enabledApiProposals"
+      ansible.builtin.lineinfile:
+        name: "{{ file_path }}"
+        regexp: '\t\t"readonlyMessage"*'
+        state: absent
+      check_mode: true
+      register: config_present
+      changed_when: false
+    - name: Print config present
+      ansible.builtin.debug:
+        var: config_present
+    - name: Insert/Update readonlyMessage with enabledApiProposals
+      ansible.builtin.blockinfile:
+        path: "{{ file_path }}"
+        insertafter: '\t"enabledApiProposals": \['
+        block: "\t\t{{ api_addition }}"
+      when: not config_present.found
+    # Match any line starting with '#'
+    - name: Remove blockinfile markers
+      ansible.builtin.lineinfile:
+        path: "{{ file_path }}"
+        state: absent
+        regexp: "^#.*"
+      when: not config_present.found

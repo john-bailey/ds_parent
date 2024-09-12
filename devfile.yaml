@@ -1,0 +1,147 @@
+schemaVersion: 2.2.0
+metadata:
+  name: omf-parent
+components:
+  - name: tooling-container
+    container:
+      image: quay.io/devspaces/ansible-creator-ee@sha256:3128cce4c1f2c1600db7750ad8b1b0cc655fb59c621d982c863c24696c4bd68c
+      memoryRequest: 256M
+      memoryLimit: 6Gi
+      cpuRequest: 250m
+      cpuLimit: 2000m
+      args: ["tail", "-f", "/dev/null"]
+      env:
+        - name: "ANSIBLE_COLLECTIONS_PATH"
+          value: "~/.ansible/collections:/usr/share/ansible/collections:/projects/ansible-devspaces-poc/collections"
+variables:
+  # ENV Variable for the core repository. This shouldn't be changed.
+  project_source: $PROJECT_SOURCE
+  # ENV Variable for a secondary repository. This is transient and can be changed by the user. For instance, this needs
+  # updating to correctly target molecule invocations
+  secondary_source: $SECONDARY_SOURCE
+  molecule_working_dir: $SECONDARY_SOURCE/extensions
+  molecule_scenario: $MOLECULE_SCENARIO
+commands:
+  - id: oc-install
+    exec:
+      commandLine: "/usr/local/bin/ansible-playbook {{ project_source }}/playbooks/install_oc.yml"
+      workingDir: "{{ project_source }}"
+      group:
+        kind: build
+        isDefault: true
+      component: tooling-container
+
+  - id: workspace-configure
+    exec:
+      label: "Configure workspace for tasks"
+      commandLine: "/usr/local/bin/ansible-playbook {{ project_source }}/playbooks/configure_workspace.yml"
+      workingDir: "{{ project_source }}"
+      group:
+        kind: build
+        isDefault: false
+      component: tooling-container
+
+  - id: molecule-create
+    exec:
+      label: "Molecule 01: start a test pod for the automation"
+      commandLine: "source $HOME/.bashrc && cd $SECONDARY_SOURCE/extensions && molecule create -s $MOLECULE_SCENARIO"
+      group:
+        kind: run
+        isDefault: true
+      component: tooling-container
+
+  - id: molecule-list
+    exec:
+      label: "Molecule 02: view the test instance that was created"
+      commandLine: "source $HOME/.bashrc && cd $SECONDARY_SOURCE/extensions && molecule list -s $MOLECULE_SCENARIO"
+      group:
+        kind: run
+        isDefault: true
+      component: tooling-container
+
+  - id: molecule-verify
+    exec:
+      label: "Molecule 03: run the verification against the test pod"
+      commandLine: "source $HOME/.bashrc && cd $SECONDARY_SOURCE/extensions && molecule verify -s $MOLECULE_SCENARIO"
+      group:
+        kind: run
+        isDefault: true
+      component: tooling-container
+
+  - id: molecule-converge
+    exec:
+      label: "Molecule 04: apply the role to the pod"
+      commandLine: "source $HOME/.bashrc && cd $SECONDARY_SOURCE/extensions && molecule converge -s $MOLECULE_SCENARIO"
+      group:
+        kind: run
+        isDefault: true
+      component: tooling-container
+
+  - id: molecule-destroy
+    exec:
+      commandLine: "source $HOME/.bashrc && cd $SECONDARY_SOURCE/extensions && molecule destroy -s $MOLECULE_SCENARIO"
+      group:
+        kind: run
+        isDefault: true
+      component: tooling-container
+
+  - id: molecule-test
+    exec:
+      label: "Molecule 06: run the full molecule test"
+      commandLine: "source $HOME/.bashrc && cd $SECONDARY_SOURCE/extensions && molecule test -s $MOLECULE_SCENARIO"
+      group:
+        kind: run
+        isDefault: true
+      component: tooling-container
+
+  - id: molecule-login
+    exec:
+      label: "Molecule 07: login to molecule containers"
+      commandLine: "source $HOME/.bashrc && cd $SECONDARY_SOURCE/extensions && molecule login -s $MOLECULE_SCENARIO"
+      group:
+        kind: debug
+        isDefault: true
+      component: tooling-container
+
+  - id: ansible-navigator
+    exec:
+      label: "Ansible-Navigator: Start ansible-navigator"
+      commandLine: |
+        if [ ! -d "$HOME/.cache/ansible-navigator" ]; then
+          mkdir -p "$HOME/.cache/ansible-navigator"
+        fi
+        cp /usr/local/lib/python3.11/site-packages/ansible_navigator/data/catalog_collections.py $HOME/.cache/ansible-navigator
+        ansible-navigator --ee false
+      workingDir: "{{ project_source }}"
+      component: tooling-container
+
+  - id: project-summary
+    exec:
+      label: "Project 01: View Project Variables"
+      commandLine: "source $HOME/.bashrc && ansible-playbook {{ project_source }}/playbooks/view_project.yml"
+      group:
+        kind: run
+        isDefault: false
+      component: tooling-container
+
+  - id: project-retarget
+    exec:
+      label: "Project 02: Retarget Project"
+      commandLine: "source $HOME/.bashrc && ansible-playbook {{ project_source }}/playbooks/retarget_project.yml"
+      group:
+        kind: run
+        isDefault: false
+      component: tooling-container
+
+  - id: print-devfile-vars
+    exec:
+      label: "Devfile 01: Print Devfile Vars"
+      commandLine: "source $HOME/.bashrc && echo {{ secondary_source }}; echo {{ project_source }}; echo $PROJECT_SOURCE; echo ${PROJECT_SOURCE}"
+      group:
+        kind: run
+        isDefault: false
+      component: tooling-container
+events:
+  postStart:
+    - "workspace-configure"
+    - "oc-install"

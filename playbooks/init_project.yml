@@ -1,0 +1,48 @@
+---
+- name: Create New Local Project
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  no_log: false
+  vars_prompt:
+    - name: project_name
+      prompt: What is the project name?
+      private: false
+  vars:
+    workspace_file: "/projects/.code-workspace"
+  tasks:
+    - name: Set filepath
+      ansible.builtin.set_fact:
+        project_path: "/projects/{{ project_name }}"
+    - name: Create project directory
+      ansible.builtin.file:
+        path: "{{ project_path }}"
+        state: directory
+        mode: '0755'
+    - name: Check that .code-workspaces file exists
+      ansible.builtin.stat:
+        path: "{{ workspace_file }}"
+      register: stat_result
+      failed_when: not stat_result.stat.exists
+    - name: Add directory to .code-workspace file
+      ansible.builtin.script: "../scripts/add_to_code_workspace.py {{ project_name }} /projects/"
+      args:
+        executable: python3
+      register: result
+      changed_when: result.rc == 0
+      failed_when: result.rc > 1
+    - name: Create the default molecule scenario
+      ansible.builtin.command:
+        chdir: "{{ project_path }}"
+        cmd: "molecule init scenario"
+        creates: "{{ project_path }}/molecule/default"
+    - name: Overwrite default molecule scenario
+      ansible.builtin.copy:
+        src: "files/molecule/"
+        dest: "{{ project_path }}/molecule/default/"
+        mode: '0644'
+    - name: Update the project environmental variable
+      ansible.builtin.lineinfile:
+        path: ~/.bashrc
+        regexp: '^export PROJECT_SOURCE='
+        line: export PROJECT_SOURCE='{{ project_path }}'

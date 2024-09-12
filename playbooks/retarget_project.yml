@@ -1,0 +1,39 @@
+---
+- name: Update Project Environmental Variable
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  no_log: false
+  tasks:
+    - name: Set facts from environmental variables
+      ansible.builtin.set_fact:
+        secondary_source: "{{ lookup('ansible.builtin.env', 'SECONDARY_SOURCE') }}"
+        molecule_scenario: "{{ lookup('ansible.builtin.env', 'MOLECULE_SCENARIO') }}"
+
+    - name: Prompt for new SECONDARY_SOURCE
+      ansible.builtin.pause:
+        prompt: "What is the target project path? Current path: '{{ secondary_source }}'"
+      register: target_project
+
+    - name: Prompt for new MOLECULE_SCENARIO
+      ansible.builtin.pause:
+        prompt: "What is the target molecule scenario? Current scenario: '{{ molecule_scenario }}'"
+      register: target_scenario
+
+    - name: Update the project environmental variable
+      ansible.builtin.lineinfile:
+        path: ~/.bashrc
+        regexp: '^export SECONDARY_SOURCE='
+        line: export SECONDARY_SOURCE='{{ target_project.user_input }}'
+
+    - name: Update the scenario environmental variable
+      ansible.builtin.lineinfile:
+        path: ~/.bashrc
+        regexp: '^export MOLECULE_SCENARIO='
+        line: export MOLECULE_SCENARIO='{{ target_scenario.user_input }}'
+
+    - name: Print change information
+      ansible.builtin.debug:
+        msg:
+          - "SECONDARY_SOURCE updated from {{ secondary_source }} to {{ target_project.user_input }}"
+          - "MOLECULE_SCENARIO updated from {{ molecule_scenario }} to {{ target_scenario.user_input }}"

@@ -1,0 +1,18 @@
+---
+# Molecule scenario config
+
+dependency:
+  name: galaxy
+  options:
+    requirements-file: requirements.yml
+
+driver:
+  options:
+    managed: false
+    login_cmd_template: "podman exec -ti {instance} bash"
+    ansible_connection_options:
+      ansible_connection: podman
+
+platforms:
+  - name: ubi9init
+    image: ubi-init:latest

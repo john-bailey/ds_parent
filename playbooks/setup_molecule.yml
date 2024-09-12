@@ -1,0 +1,66 @@
+#!/usr/bin/env ansible-playbook
+# setup_molecule.yml
+# - configure molecule and the default scenario
+#
+# Doc Link: https://docs.ansible.com/ansible/latest/dev_guide/collections_galaxy_meta.html
+#
+---
+- name: Playbook to setup the files in a new collection
+  hosts: localhost
+  gather_facts: true
+  tasks:
+    - name: Set Collection Dir
+      ansible.builtin.set_fact:
+        lst_collection_dir: "{{ lst_playbook_dir[:-1] }}"
+        str_collection_dir: "{{ lst_playbook_dir[:-1] | join('/') }}"
+      vars:
+        lst_playbook_dir: "{{ playbook_dir.split('/') }}"
+
+    - name: Print str collection dir
+      ansible.builtin.debug:
+        var: str_collection_dir
+
+    - name: Set Collection Directories
+      ansible.builtin.set_fact:
+        str_extensions: "{{ str_collection_dir }}/extensions"
+
+    - name: Set FQCN
+      ansible.builtin.set_fact:
+        str_collections_path: "{{ lst_collection_dir[:-3] | join('/') }}"
+        str_namespace: "{{ lst_collection_dir[-2:][0] }}"
+        str_collection: "{{ lst_collection_dir[-1:][0] }}"
+
+    - name: Update the ansible.cfg for molecule
+      ansible.builtin.template:
+        src: "molecule_ansible_cfg.j2"
+        dest: "{{ str_extensions }}/ansible.cfg"
+        mode: "0644"
+
+    - name: Update the ansible.cfg for the collection
+      ansible.builtin.template:
+        src: "collection_ansible_cfg.j2"
+        dest: "{{ str_collection_dir }}/ansible.cfg"
+        mode: "0644"
+
+    - name: Create the galaxy LICENSE for the collection
+      ansible.builtin.copy:
+        src: "LICENSE"
+        dest: "{{ str_collection_dir }}/LICENSE"
+        mode: "0644"
+
+    - name: Create the galaxy.yml for the collection
+      ansible.builtin.template:
+        src: "galaxy.j2"
+        dest: "{{ str_collection_dir }}/galaxy.yml"
+        mode: "0644"
+
+    - name: Create the default scenario
+      ansible.builtin.command:
+        chdir: "{{ str_extensions }}"
+        cmd: "molecule init scenario"
+        creates: "{{ str_extensions }}/molecule/default"
+
+- name: Set up the default role
+  ansible.builtin.import_playbook: "create_role.yml"
+  vars:
+    role: "default"

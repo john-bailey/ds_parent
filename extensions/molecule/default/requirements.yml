@@ -1,0 +1,4 @@
+# galaxy role and collection dependencies
+
+collections:
+  - containers.podman

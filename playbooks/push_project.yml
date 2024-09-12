@@ -1,0 +1,102 @@
+---
+- name: Push Local Project To Git
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  no_log: false
+  vars_prompt:
+    - name: project_name
+      prompt: What is the project name?
+      private: false
+    - name: git_username
+      prompt: What is your git username?
+      private: false
+  vars:
+    remote_url: "https://github.com/{{ git_username }}/{{ project_name }}.git"
+  tasks:
+    - name: Check that project exists
+      ansible.builtin.stat:
+        path: "/projects/{{ project_name }}"
+      register: stat_result
+      failed_when: not stat_result.stat.exists
+    - name: Initialize local repo
+      ansible.builtin.command: git init . -b main
+      args:
+        chdir: "/projects/{{ project_name }}"
+    - name: Check if remote repository is attached
+      ansible.builtin.command: "git config --get remote.origin.url"
+      args:
+        chdir: "/projects/{{ project_name }}"
+      register: remote_result
+      ignore_errors: true
+      # failed_when: remote_result.sdout_lines != remote_url
+      failed_when: remote_result.rc > 1
+      changed_when: false
+    # Return Code
+    # 128: Repository not found
+    - name: Print remote result
+      ansible.builtin.debug:
+        var: remote_result
+    - name: Add remote repository
+      ansible.builtin.command: "git remote add origin {{ remote_url }}"
+      args:
+        chdir: "/projects/{{ project_name }}"
+      when: (remote_result.stdout_lines | length == 0) or (remote_result.stdout_lines | first != remote_url)
+    - name: Add current files
+      ansible.builtin.command: git add --all
+      args:
+        chdir: "/projects/{{ project_name }}"
+    - name: Check if nothing to commit
+      ansible.builtin.command: git status
+      args:
+        chdir: "/projects/{{ project_name }}"
+      register: git_status
+    - name: Print git status
+      ansible.builtin.debug:
+        var: git_status
+    - name: Create initial commit
+      ansible.builtin.command: git commit -m "Initial Commit"
+      args:
+        chdir: "/projects/{{ project_name }}"
+      when: not 'nothing to commit' in git_status.stdout
+    - name: Push to remote
+      ansible.builtin.command: git push --set-upstream origin main
+      args:
+        chdir: "/projects/{{ project_name }}"
+    - name: Add project to devfile
+      ansible.builtin.script: "../scripts/add_to_devfile.py {{ project_name }} /projects/"
+      args:
+        executable: python3
+      register: result
+      changed_when: result.rc == 0
+      failed_when: result.rc > 1
+    # - name: Set filepath
+    #   ansible.builtin.set_fact:
+    #     project_path: "/projects/{{ project_name }}"
+    # - name: Create project directory
+    #   ansible.builtin.file:
+    #     path: "{{ project_path }}"
+    #     state: directory
+    #     mode: '0755'
+    # - name: Check that .code-workspaces file exists
+    #   ansible.builtin.stat:
+    #     path: "{{ workspace_file }}"
+    #   register: stat_result
+    #   failed_when: not stat_result.stat.exists
+    # - name: Add directory to .code-workspace file
+    #   ansible.builtin.script: "../scripts/add_to_code_workspace.py {{ project_name }} /projects/"
+    #   args:
+    #     executable: python3
+    #   register: result
+    #   changed_when: result.rc == 0
+    #   failed_when: result.rc > 1
+    # - name: Create the default molecule scenario
+    #   ansible.builtin.command:
+    #     chdir: "{{ project_path }}"
+    #     cmd: "molecule init scenario"
+    #     creates: "{{ project_path }}/molecule/default"
+    # - name: Overwrite default molecule scenario
+    #   ansible.builtin.copy:
+    #     src: "files/molecule/"
+    #     dest: "{{ project_path }}/molecule/default/"
+    #     mode: '0644'

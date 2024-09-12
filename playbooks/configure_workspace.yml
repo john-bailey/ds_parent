@@ -1,0 +1,22 @@
+---
+- name: Configure workspace for tasks
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  no_log: false
+  tasks:
+    - name: Set facts from environmental variables
+      ansible.builtin.set_fact:
+        project_source: "{{ lookup('ansible.builtin.env', 'PROJECT_SOURCE') }}"
+
+    - name: Environment variables copy PROJECT_SOURCE to SECONDARY_SOURCE
+      ansible.builtin.lineinfile:
+        path: ~/.bashrc
+        regexp: '^export SECONDARY_SOURCE='
+        line: export SECONDARY_SOURCE='{{ project_source }}'
+
+    - name: Set MOLECULE_SCENARIO environment variables
+      ansible.builtin.lineinfile:
+        path: ~/.bashrc
+        regexp: '^export MOLECULE_SCENARIO='
+        line: export MOLECULE_SCENARIO='default'

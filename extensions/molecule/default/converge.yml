@@ -1,0 +1,30 @@
+---
+# converge.yml playbook
+
+- name: Converge roles and tasks with platform instance
+  hosts: all
+  gather_facts: false
+  vars:
+    strict_linting: false
+  tasks:
+    - name: Lint the role
+      delegate_to: localhost
+      ansible.builtin.command:
+        cmd: "ansible-lint --nocolor -q -f quiet ../../../roles/default"
+      changed_when: false
+      failed_when: false
+      register: lint
+
+    - name: Show the lint output
+      ansible.builtin.debug:
+        var: lint.stdout_lines
+
+    - name: Stop if linting fails
+      when: 
+        - lint.rc != 0
+        - strict_linting
+      ansible.builtin.fail:
+        msg: "Strict Linting set in converge.yml"
+
+- name: Converge a playbook to drive role testing
+  ansible.builtin.import_playbook: "repos.ansible-devspaces-poc.default"

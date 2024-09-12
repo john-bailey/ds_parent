@@ -1,0 +1,82 @@
+#!/usr/bin/env ansible-playbook
+# create_role.yml
+# This playbook will perform the following actions:
+# - create a new molecule scenario for the role
+# - copy the files from the default molecule scenario
+# - update the namespace and collection in the new molecule scenario
+# - generate a role using ansible-galaxy
+# - generate a playbook to test the role with Molecule
+---
+- name: Initialize a new role
+  hosts: localhost
+  vars:
+    str_role: "{{ role | mandatory }}"
+  tasks:
+    - name: Set Collection Dir
+      ansible.builtin.set_fact:
+        lst_collection_dir: "{{ lst_playbook_dir[:-1] }}"
+        str_collection_dir: "{{ lst_playbook_dir[:-1] | join('/') }}"
+      vars:
+        lst_playbook_dir: "{{ playbook_dir.split('/') }}"
+
+    - name: Set FQCN
+      ansible.builtin.set_fact:
+        str_collection_name: "{{ lst_collection_dir[-2:][0] }}.{{ lst_collection_dir[-1:][0] }}"
+
+    - name: Show collection name
+      ansible.builtin.debug:
+        msg: "Collection Name: {{ str_collection_name }}"
+
+    - name: Set Collection Directories
+      ansible.builtin.set_fact:
+        str_extensions: "{{ str_collection_dir }}/extensions"
+        str_rolesdir: "{{ str_collection_dir }}/roles"
+
+    - name: Set Molecule Scenarios
+      ansible.builtin.set_fact:
+        str_new_scenario: "{{ str_extensions }}/molecule/{{ str_role }}"
+        str_def_scenario: "{{ str_extensions }}/molecule/default"
+
+    - name: Create a new molecule scenario
+      ansible.builtin.command:
+        chdir: "{{ str_extensions }}"
+        cmd: "molecule init scenario {{ str_role }}"
+        creates: "{{ str_new_scenario }}"
+
+    - name: Copy in scenario playbooks
+      ansible.builtin.copy:
+        remote_src: false
+        src: "{{ playbook_dir }}/files/{{ item }}"
+        dest: "{{ str_new_scenario }}/{{ item }}"
+        mode: "0644"
+      loop:
+        - "molecule.yml"
+        - "create.yml"
+        - "destroy.yml"
+        - "requirements.yml"
+
+    - name: Replace fqcn in converge playbook
+      ansible.builtin.template:
+        src: "molecule_converge.j2"
+        dest: "{{ str_new_scenario }}/converge.yml"
+        mode: "0644"
+
+    - name: Create a new role
+      ansible.builtin.command:
+        chdir: "{{ str_rolesdir }}"
+        cmd: "ansible-galaxy role init {{ str_role }}"
+        creates: "{{ str_rolesdir }}/{{ str_role }}"
+
+    - name: Add the initial tasks file
+      ansible.builtin.template:
+        src: "roles_tasks_main.j2"
+        dest: "{{ str_rolesdir }}/{{ str_role }}/tasks/main.yml"
+        mode: "0644"
+
+    - name: Create role playbook
+      ansible.builtin.template:
+        src: "playbooks_scenario.j2"
+        dest: "{{ playbook_dir }}/{{ str_role }}.yml"
+        mode: "0644"
+      vars:
+        str_fqcn: "{{ str_collection_name }}.{{ str_role }}"

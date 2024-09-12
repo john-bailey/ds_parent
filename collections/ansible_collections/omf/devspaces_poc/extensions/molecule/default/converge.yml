@@ -1,0 +1,9 @@
+---
+- name: Converge
+  hosts: all
+  gather_facts: false
+  connection: community.okd.oc
+  tasks:
+    - name: "Include sos_report"
+      ansible.builtin.include_role:
+        name: "omf.devspaces_poc.sos_report"

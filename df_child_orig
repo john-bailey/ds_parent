@@ -1,0 +1,12 @@
+schemaVersion: 2.2.0
+metadata:
+  name: omf-devspaces-poc
+projects:
+  - name: ansible-devspaces-poc
+    git:
+      remotes:
+        origin: "https://evdcigl.corp.fin/T2221737/ds_parent.git"
+  - name: demo-child-devfile
+    git:
+      remotes:
+        origin: 'https://evdcigl.corp.fin/T2221737/ds_work.git

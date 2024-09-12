@@ -1,0 +1,49 @@
+---
+# create.yml playbook
+
+- name: Create molecule containers
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Create a container for each platform
+      containers.podman.podman_container:
+        name: "{{ item.name }}"
+        image: "{{ item.image }}"
+        state: started
+        command: sleep 1d
+        log_driver: json-file
+      register: result
+      loop: "{{ molecule_yml.platforms }}"
+
+    - name: Append each platform's name to molecule group
+      ansible.builtin.set_fact:
+        molecule_group: |
+          molecule:
+            hosts:
+              "{{ item.name }}":
+                ansible_connection: containers.podman.podman
+      loop: "{{ molecule_yml.platforms }}"
+      loop_control:
+        label: "{{ item.name }}"
+
+    - name: Append molecule group to base inventory
+      ansible.builtin.set_fact:
+        mol_inventory: "{{ base_inv | combine(molecule_group | from_yaml, recursive=true) }}"
+      vars:
+        base_inv:
+          all:
+            hosts: {}
+            children:
+              molecule:
+
+    - name: Dump molecule_inventory
+      # {{ molecule_inventory | to_yaml }}
+      ansible.builtin.copy:
+        content: |
+          {{ mol_inventory | to_yaml }}
+        dest: "{{ molecule_ephemeral_directory }}/inventory/molecule_inventory.yml"
+        mode: "0600"
+
+    - name: Force inventory refresh
+      ansible.builtin.meta: refresh_inventory

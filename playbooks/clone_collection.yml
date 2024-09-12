@@ -1,0 +1,34 @@
+---
+- name: Clone Collection
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  no_log: false
+  tasks:
+    - name: Check ENV Variables are defined
+      ansible.builtin.set_fact:
+        is_defined: true
+      when: lookup('env', 'COLLECTION_URL') | length > 0
+        and lookup('env', 'COLLECTION_PATH') | length > 0
+    - name: Clone Repo Block
+      when: is_defined
+      block:
+        - name: Get ENV Variables
+          ansible.builtin.set_fact:
+            repo_url: "{{ lookup('env', 'COLLECTION_URL') }}"
+            repo_path: "{{ lookup('env', 'COLLECTION_PATH') }}"
+        - name: Check repo url parameter
+          ansible.builtin.debug:
+            var: repo_url
+            verbosity: 3
+        - name: Check repo path parameter
+          ansible.builtin.debug:
+            var: repo_path
+            verbosity: 3
+        # Lint catches lack of idempotence. For this scenario, having the latest seems important
+        - name: Clone GitLab Collection Repo
+          ansible.builtin.git:
+            repo: "{{ repo_url }}"
+            dest: "{{ repo_path }}"
+            version: HEAD
+            clone: true
